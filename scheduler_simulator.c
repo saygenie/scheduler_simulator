@@ -8,8 +8,19 @@
 #define MAX_IO_BURST 5
 #define MAX_ARRIVAL 10
 #define MAX_PRIORITY 10
+
 #define WALL 80
+
+#define BACK -1
 #define EXIT -1
+
+#define FCFS 1
+#define SJF 2
+#define PRIORITY 3
+#define RR 4
+
+#define PREEMPTIVE 1
+#define NON_PREEMPTIVE 2
 
 typedef struct Process {
 	int pid;
@@ -63,9 +74,11 @@ int main() {
 	int step = 1;
 	int num_process, algorithm, p_state;
 	Process *process[MAX_PROCESS];
-	Queue q;
-	init_queue(&q);
-	
+	Queue *ready_queue = (Queue*) malloc(sizeof(Queue));
+	Queue *waiting_queue = (Queue*) malloc(sizeof(Queue));
+	init_queue(ready_queue);
+	init_queue(waiting_queue);
+
 	while(1) {
 		switch (step) {
 			case 1: //step 1 : how many process?
@@ -114,7 +127,7 @@ int main() {
 				print_wall();
 
 				switch (algorithm) {
-					case EXIT: 
+					case BACK: 
 					{
 						print_wall();
 						for(int i=0; i<MAX_PROCESS; i++) {
@@ -123,8 +136,8 @@ int main() {
 						step = 1;
 						break;
 					}
-					case 2://SJF and Priority need option.
-					case 3:
+					case SJF://SJF and Priority need option.
+					case PRIORITY:
 					{
 						while(1) {
 							print_option();
@@ -136,13 +149,13 @@ int main() {
 							print_wall();
 						
 							switch (p_state) {
-								case EXIT: {
+								case BACK: {
 									print_wall();
 									step = 2;
 									break;
 								}
-								case 1:
-								case 2:
+								case PREEMPTIVE:
+								case NON_PREEMPTIVE:
 								{
 									step = 3;
 									break;
@@ -156,14 +169,15 @@ int main() {
 						}
 						break;
 					}
-					case 1://FCFS, RR doesn't need option.
+					case FCFS://FCFS, RR doesn't need option.
 					{
-						
+						int T = 0;
+
 						step = 3;
 						p_state = -1;
 						break;
 					}
-					case 4:
+					case RR:
 					{
 						step = 3;
 						p_state = -1;
