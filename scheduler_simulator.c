@@ -9,27 +9,33 @@
 #define MAX_ARRIVAL 10
 #define MAX_PRIORITY 10
 
-#define WALL 80
+#define WALL 100
+
+#define IO_RANDOM 5
 
 #define BACK -1
 #define EXIT -1
 
 #define FCFS 1
-#define SJF 2
-#define PRIORITY 3
-#define RR 4
+#define SJF_PREEMPTIVE 2
+#define SJF_NON_PREEMPTIVE 3
+#define PRIORITY_PREEMPTIVE 4
+#define PRIORITY_NON_PREEMPTIVE 5
+#define RR 6
 
 #define PREEMPTIVE 1
 #define NON_PREEMPTIVE 2
 
 typedef struct Process {
 	int pid;
-	int remained_cpu_burst_time;
-	int remained_io_burst_time;
 	int cpu_burst_time;
 	int io_burst_time;
 	int arrival_time;
 	int priority;
+	int io_start;
+
+	int remained_cpu_burst_time;
+	int remained_io_burst_time;
 } Process;
 
 typedef struct Node {
@@ -46,6 +52,10 @@ typedef struct Queue {
 
 Process *create_process(int i);
 
+void print_process(Process *p);
+
+void wait_processing(Queue *wq, Queue *rq);
+
 void init_remained_time(Process *p);
 
 void init_queue(Queue *q);
@@ -58,6 +68,8 @@ void enqueue(Queue *q, Process *p);
 
 Process *dequeue(Queue *q);
 
+void print_queue(Queue *q);
+
 void print_step(int i);
 
 void print_wall();
@@ -66,8 +78,7 @@ void print_option();
 
 void print_wrong();
 
-void print_algorithm(int n);
-
+void print_Gantt(int result[1000], int T);
 
 int main() {
 	srand(time(NULL));
@@ -83,7 +94,7 @@ int main() {
 		switch (step) {
 			case 1: //step 1 : how many process?
 			{
-				for(int i=0; i<MAX_PROCESS; i++) {
+				for(int i=0; i<=MAX_PROCESS; i++) {
 					process[i] = (Process *) malloc(sizeof(Process));
 				}
 				
@@ -103,9 +114,8 @@ int main() {
 				}
 				else if(num_process >= MIN_PROCESS && num_process <= MAX_PROCESS) {
 					printf("| number of processes : %d\n", num_process);
-					printf("| pid : 0 => idle\n");
-					for(int i=0; i<num_process; i++) {
-						process[i] = create_process(i+1);
+					for(int i=1; i<=num_process; i++) {
+						process[i] = create_process(i);
 					}
 					step = 2;
 					break;
@@ -115,12 +125,17 @@ int main() {
 			}
 			case 2: //step 2 : choose algorithm
 			{
+				printf("| pid :  0 => idle\n");
+				for(int i=1; i<=num_process; i++) {
+					print_process(process[i]);
+				}
 				print_step(2);
 				printf("| 1. FCFS(First Come First Served)\n");
-				printf("| 2. SJF(Shortest Job First)\n");
-				printf("| 3. Priority\n");
-				printf("| 4. RR(Round Robin)\n");
-				printf("| 5. Evaluation\n");
+				printf("| 2. SJF_Preemptive\n");
+				printf("| 3. SJF_Non_Preemptive\n");
+				printf("| 4. Priority_Preemptive\n");
+				printf("| 5. Priority_Non_Preemptive\n");
+				printf("| 6. RR(Round Robin)\n");
 				printf("| reset : %d\n", EXIT);
 				printf("| input : ");
 				scanf("%d", &algorithm);
@@ -129,58 +144,621 @@ int main() {
 				switch (algorithm) {
 					case BACK: 
 					{
-						print_wall();
-						for(int i=0; i<MAX_PROCESS; i++) {
+						for(int i=0; i<=MAX_PROCESS; i++) {
 							free(process[i]);
 						}
 						step = 1;
 						break;
 					}
-					case SJF://SJF and Priority need option.
-					case PRIORITY:
-					{
-						while(1) {
-							print_option();
-							printf("| 1. Preemptive\n");
-							printf("| 2. Non-Preemptive\n");
-							printf("| back : %d\n", EXIT);
-							printf("| input : ");
-							scanf("%d", &p_state);
-							print_wall();
-						
-							switch (p_state) {
-								case BACK: {
-									print_wall();
-									step = 2;
-									break;
-								}
-								case PREEMPTIVE:
-								case NON_PREEMPTIVE:
-								{
-									step = 3;
-									break;
-								}
-								default:
-								{
-									print_wrong();
-									break;
-								}
-							}
-						}
-						break;
-					}
-					case FCFS://FCFS, RR doesn't need option.
+					case FCFS:
 					{
 						int T = 0;
+						int total_waiting_time[MAX_PROCESS] = {0, };
+						int total_turnaround_time[MAX_PROCESS] = {0, };
+						printf("(FCFS)\n");
+						printf("|");
+						while(1) {
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->arrival_time==T) {
+									enqueue(ready_queue, process[i]);
+								}
+							}
 
-						step = 3;
-						p_state = -1;
+							if(is_empty(ready_queue)) {
+								printf("0|");
+								wait_processing(waiting_queue, ready_queue);
+							}
+							else {
+								wait_processing(waiting_queue, ready_queue);
+
+								Process *head_process = (Process*) malloc(sizeof(Process));
+								head_process = ready_queue->head->process;
+
+								printf("%d", head_process->pid);
+								head_process->remained_cpu_burst_time--;
+
+								if(head_process->io_start != 0 && head_process->cpu_burst_time - head_process->io_start == head_process->remained_cpu_burst_time) {
+									printf("|");
+									enqueue(waiting_queue, dequeue(ready_queue));
+								}
+									
+								if(!is_empty(ready_queue) && ready_queue->head->process->remained_cpu_burst_time == 0) {
+									printf("|");
+									Process *complete_process = (Process*) malloc(sizeof(Process));
+									complete_process = dequeue(ready_queue);
+									total_waiting_time[complete_process->pid] = T + 1 - complete_process->arrival_time - complete_process->cpu_burst_time - complete_process->io_burst_time;
+									total_turnaround_time[complete_process->pid] = T + 1 - complete_process->arrival_time;
+								}
+							}
+
+							T++;
+							int check = 0;
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->remained_cpu_burst_time != 0)
+									check = 1;
+							}
+
+							if(check==0) {
+								double wait = 0;
+								double turnaround = 0;
+
+								printf("\n");
+								printf("average waiting time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_waiting_time[i]);
+									wait += (double) total_waiting_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, wait/(double)num_process);
+								printf("average turnaround time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_turnaround_time[i]);
+									turnaround += (double)total_turnaround_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, turnaround/(double)num_process);
+								for(int i=1; i<=num_process; i++) {
+									init_remained_time(process[i]);
+								}
+								init_queue(waiting_queue);
+								init_queue(ready_queue);
+								break;
+							}
+						}
+						print_wall();
+						break;
+					}
+					case SJF_PREEMPTIVE:
+					{
+						int T = 0;
+						int total_waiting_time[MAX_PROCESS] = {0, };
+						int total_turnaround_time[MAX_PROCESS] = {0, };
+						printf("(SJF_Preemptive)\n");
+						printf("|");
+						while(1) {
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->arrival_time==T) {
+									enqueue(ready_queue, process[i]);
+								}
+							}
+
+							if(is_empty(ready_queue)) {
+								printf("0|");
+								wait_processing(waiting_queue, ready_queue);
+							}
+							else {
+								Process *sj_process = (Process*) malloc(sizeof(Process));
+								sj_process = ready_queue->head->process;
+								Node *node = (Node*) malloc(sizeof(Node));
+								node = ready_queue->head;
+
+								int need_dequeue = 0;
+								for(int i=0; i<size_queue(ready_queue); i++) {
+									if(sj_process->remained_cpu_burst_time > node->process->remained_cpu_burst_time) {
+										sj_process = node->process;
+										need_dequeue = i;
+									}
+									
+									node = node->next;
+								}
+
+								for(int i=0; i<need_dequeue; i++) {
+									enqueue(ready_queue, dequeue(ready_queue));
+								}
+
+								if(need_dequeue != 0)
+									printf("#"); //preemptive
+
+								printf("%d", ready_queue->head->process->pid);
+								sj_process->remained_cpu_burst_time--;
+
+								if(!is_empty(waiting_queue)) {
+									wait_processing(waiting_queue, ready_queue);
+								}
+
+								if(sj_process->io_start != 0 && sj_process->cpu_burst_time - sj_process->io_start == sj_process->remained_cpu_burst_time) {
+									printf("|");
+									enqueue(waiting_queue, dequeue(ready_queue));
+								}
+								
+								if(!is_empty(ready_queue) && ready_queue->head->process->remained_cpu_burst_time == 0) {
+									printf("|");
+									Process *complete_process = (Process*) malloc(sizeof(Process));
+									complete_process = dequeue(ready_queue);
+									total_waiting_time[complete_process->pid] = T + 1 - complete_process->arrival_time - complete_process->cpu_burst_time - complete_process->io_burst_time;
+									total_turnaround_time[complete_process->pid] = T + 1 - complete_process->arrival_time;
+								}
+							}
+
+							T++;
+							int check = 0;
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->remained_cpu_burst_time != 0)
+									check = 1;
+							}
+
+							if(check==0) {
+								double wait = 0;
+								double turnaround = 0;
+
+								printf("\n");
+								printf("average waiting time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_waiting_time[i]);
+									wait += (double) total_waiting_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, wait/(double)num_process);
+								printf("average turnaround time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_turnaround_time[i]);
+									turnaround += (double)total_turnaround_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, turnaround/(double)num_process);
+								for(int i=1; i<=num_process; i++) {
+									init_remained_time(process[i]);
+								}
+								init_queue(waiting_queue);
+								init_queue(ready_queue);
+								break;
+							}
+						}
+						print_wall();
+						break;
+					}
+					case SJF_NON_PREEMPTIVE:
+					{
+						int T = 0;
+						int total_waiting_time[MAX_PROCESS] = {0, };
+						int total_turnaround_time[MAX_PROCESS] = {0, };
+						printf("(SJF_Non_Preemptive)\n");
+						printf("|");
+						while(1) {
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->arrival_time==T) {
+									enqueue(ready_queue, process[i]);
+								}
+							}
+
+							if(is_empty(ready_queue)) {
+								printf("0|");
+								wait_processing(waiting_queue, ready_queue);
+							}
+							else {
+								Process *sj_process = (Process*) malloc(sizeof(Process));
+								sj_process = ready_queue->head->process;
+								Node *node = (Node*) malloc(sizeof(Node));
+								node = ready_queue->head;
+
+								printf("%d", ready_queue->head->process->pid);
+								sj_process->remained_cpu_burst_time--;
+
+								if(!is_empty(waiting_queue)) {
+									wait_processing(waiting_queue, ready_queue);
+								}
+
+								if(sj_process->io_start != 0 && sj_process->cpu_burst_time - sj_process->io_start == sj_process->remained_cpu_burst_time) {
+									printf("|");
+									enqueue(waiting_queue, dequeue(ready_queue));
+									int need_dequeue = 0;
+									for(int i=0; i<size_queue(ready_queue); i++) {
+										if(sj_process->remained_cpu_burst_time > node->process->remained_cpu_burst_time) {
+											sj_process = node->process;
+											need_dequeue = i;
+										}
+										
+										node = node->next;
+									}
+
+									for(int i=0; i<need_dequeue; i++) {
+										enqueue(ready_queue, dequeue(ready_queue));
+									}
+								}
+								
+								if(!is_empty(ready_queue) && ready_queue->head->process->remained_cpu_burst_time == 0) {
+									printf("|");
+									Process *complete_process = (Process*) malloc(sizeof(Process));
+									complete_process = dequeue(ready_queue);
+									total_waiting_time[complete_process->pid] = T + 1 - complete_process->arrival_time - complete_process->cpu_burst_time - complete_process->io_burst_time;
+									total_turnaround_time[complete_process->pid] = T + 1 - complete_process->arrival_time;
+
+									int need_dequeue = 0;
+									for(int i=0; i<size_queue(ready_queue); i++) {
+										if(sj_process->remained_cpu_burst_time > node->process->remained_cpu_burst_time) {
+											sj_process = node->process;
+											need_dequeue = i;
+										}
+										
+										node = node->next;
+									}
+
+									for(int i=0; i<need_dequeue; i++) {
+										enqueue(ready_queue, dequeue(ready_queue));
+									}
+								}
+							}
+
+							T++;
+							int check = 0;
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->remained_cpu_burst_time != 0)
+									check = 1;
+							}
+
+							if(check==0) {
+								double wait = 0;
+								double turnaround = 0;
+
+								printf("\n");
+								printf("average waiting time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_waiting_time[i]);
+									wait += (double) total_waiting_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, wait/(double)num_process);
+								printf("average turnaround time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_turnaround_time[i]);
+									turnaround += (double)total_turnaround_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, turnaround/(double)num_process);
+								for(int i=1; i<=num_process; i++) {
+									init_remained_time(process[i]);
+								}
+								init_queue(waiting_queue);
+								init_queue(ready_queue);
+								break;
+							}
+						}
+						print_wall();
+						break;
+					}
+					case PRIORITY_PREEMPTIVE:
+					{
+						int T = 0;
+						int total_waiting_time[MAX_PROCESS] = {0, };
+						int total_turnaround_time[MAX_PROCESS] = {0, };
+						printf("(PRIORITY_Preemptive)\n");
+						printf("|");
+						while(1) {
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->arrival_time==T) {
+									enqueue(ready_queue, process[i]);
+								}
+							}
+
+							if(is_empty(ready_queue)) {
+								printf("0|");
+								wait_processing(waiting_queue, ready_queue);
+							}
+							else {
+								Process *priority_process = (Process*) malloc(sizeof(Process));
+								priority_process = ready_queue->head->process;
+								Node *node = (Node*) malloc(sizeof(Node));
+								node = ready_queue->head;
+
+								int need_dequeue = 0;
+								for(int i=0; i<size_queue(ready_queue); i++) {
+									if(priority_process->priority < node->process->priority) {
+										priority_process = node->process;
+										need_dequeue = i;
+									}
+									
+									node = node->next;
+								}
+
+								for(int i=0; i<need_dequeue; i++) {
+									enqueue(ready_queue, dequeue(ready_queue));
+								}
+
+								if(need_dequeue != 0)
+									printf("#"); //preemptive
+
+								printf("%d", ready_queue->head->process->pid);
+								priority_process->remained_cpu_burst_time--;
+
+								if(!is_empty(waiting_queue)) {
+									wait_processing(waiting_queue, ready_queue);
+								}
+
+								if(priority_process->io_start != 0 && priority_process->cpu_burst_time - priority_process->io_start == priority_process->remained_cpu_burst_time) {
+									printf("|");
+									enqueue(waiting_queue, dequeue(ready_queue));
+								}
+								
+								if(!is_empty(ready_queue) && ready_queue->head->process->remained_cpu_burst_time == 0) {
+									printf("|");
+									Process *complete_process = (Process*) malloc(sizeof(Process));
+									complete_process = dequeue(ready_queue);
+									total_waiting_time[complete_process->pid] = T + 1 - complete_process->arrival_time - complete_process->cpu_burst_time - complete_process->io_burst_time;
+									total_turnaround_time[complete_process->pid] = T + 1 - complete_process->arrival_time;
+								}
+							}
+
+							T++;
+							int check = 0;
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->remained_cpu_burst_time != 0)
+									check = 1;
+							}
+
+							if(check==0) {
+								double wait = 0;
+								double turnaround = 0;
+
+								printf("\n");
+								printf("average waiting time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_waiting_time[i]);
+									wait += (double) total_waiting_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, wait/(double)num_process);
+								printf("average turnaround time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_turnaround_time[i]);
+									turnaround += (double)total_turnaround_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, turnaround/(double)num_process);
+								for(int i=1; i<=num_process; i++) {
+									init_remained_time(process[i]);
+								}
+								init_queue(waiting_queue);
+								init_queue(ready_queue);
+								break;
+							}
+						}
+						print_wall();
+						break;
+					}
+					case PRIORITY_NON_PREEMPTIVE:
+					{
+						int T = 0;
+						int total_waiting_time[MAX_PROCESS] = {0, };
+						int total_turnaround_time[MAX_PROCESS] = {0, };
+						printf("(PRIORITY_Non_Preemptive)\n");
+						printf("|");
+						while(1) {
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->arrival_time==T) {
+									enqueue(ready_queue, process[i]);
+								}
+							}
+
+							if(is_empty(ready_queue)) {
+								printf("0|");
+								wait_processing(waiting_queue, ready_queue);
+							}
+							else {
+								Process *priority_process = (Process*) malloc(sizeof(Process));
+								priority_process = ready_queue->head->process;
+								Node *node = (Node*) malloc(sizeof(Node));
+								node = ready_queue->head;
+
+								printf("%d", ready_queue->head->process->pid);
+								priority_process->remained_cpu_burst_time--;
+
+								if(!is_empty(waiting_queue)) {
+									wait_processing(waiting_queue, ready_queue);
+								}
+
+								if(priority_process->io_start != 0 && priority_process->cpu_burst_time - priority_process->io_start == priority_process->remained_cpu_burst_time) {
+									printf("|");
+									enqueue(waiting_queue, dequeue(ready_queue));
+									int need_dequeue = 0;
+									for(int i=0; i<size_queue(ready_queue); i++) {
+										if(priority_process->remained_cpu_burst_time < node->process->remained_cpu_burst_time) {
+											priority_process = node->process;
+											need_dequeue = i;
+										}
+										
+										node = node->next;
+									}
+
+									for(int i=0; i<need_dequeue; i++) {
+										enqueue(ready_queue, dequeue(ready_queue));
+									}
+								}
+								
+								if(!is_empty(ready_queue) && ready_queue->head->process->remained_cpu_burst_time == 0) {
+									printf("|");
+									Process *complete_process = (Process*) malloc(sizeof(Process));
+									complete_process = dequeue(ready_queue);
+									total_waiting_time[complete_process->pid] = T + 1 - complete_process->arrival_time - complete_process->cpu_burst_time - complete_process->io_burst_time;
+									total_turnaround_time[complete_process->pid] = T + 1 - complete_process->arrival_time;
+
+									int need_dequeue = 0;
+									for(int i=0; i<size_queue(ready_queue); i++) {
+										if(priority_process->remained_cpu_burst_time < node->process->remained_cpu_burst_time) {
+											priority_process = node->process;
+											need_dequeue = i;
+										}
+										
+										node = node->next;
+									}
+
+									for(int i=0; i<need_dequeue; i++) {
+										enqueue(ready_queue, dequeue(ready_queue));
+									}
+								}
+							}
+
+							T++;
+							int check = 0;
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->remained_cpu_burst_time != 0)
+									check = 1;
+							}
+
+							if(check==0) {
+								double wait = 0;
+								double turnaround = 0;
+
+								printf("\n");
+								printf("average waiting time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_waiting_time[i]);
+									wait += (double) total_waiting_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, wait/(double)num_process);
+								printf("average turnaround time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_turnaround_time[i]);
+									turnaround += (double)total_turnaround_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, turnaround/(double)num_process);
+								for(int i=1; i<=num_process; i++) {
+									init_remained_time(process[i]);
+								}
+								init_queue(waiting_queue);
+								init_queue(ready_queue);
+								break;
+							}
+						}
+						print_wall();
 						break;
 					}
 					case RR:
 					{
-						step = 3;
-						p_state = -1;
+						int T = 0;
+						int quantum;
+						int quantum_check = 0;
+						int total_waiting_time[MAX_PROCESS] = {0, };
+						int total_turnaround_time[MAX_PROCESS] = {0, };
+						printf("(Round Robin)\n");
+						printf("quantum : ");
+						scanf("%d", &quantum);
+						printf("|");
+						while(1) {
+							quantum_check++;
+
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->arrival_time==T) {
+									enqueue(ready_queue, process[i]);
+								}
+							}
+
+							if(is_empty(ready_queue)) {
+								printf("0|");
+								wait_processing(waiting_queue, ready_queue);
+								quantum_check = 0;
+							}
+							else {
+								wait_processing(waiting_queue, ready_queue);
+
+								Process *head_process = (Process*) malloc(sizeof(Process));
+								head_process = ready_queue->head->process;
+
+								printf("%d", head_process->pid);
+								head_process->remained_cpu_burst_time--;
+
+								if(head_process->io_start != 0 && head_process->cpu_burst_time - head_process->io_start == head_process->remained_cpu_burst_time) {
+									printf("|");
+									enqueue(waiting_queue, dequeue(ready_queue));
+									quantum_check = 0;
+								}
+									
+								if(!is_empty(ready_queue) && ready_queue->head->process->remained_cpu_burst_time == 0) {
+									printf("|");
+									Process *complete_process = (Process*) malloc(sizeof(Process));
+									complete_process = dequeue(ready_queue);
+									total_waiting_time[complete_process->pid] = T + 1 - complete_process->arrival_time - complete_process->cpu_burst_time - complete_process->io_burst_time;
+									total_turnaround_time[complete_process->pid] = T + 1 - complete_process->arrival_time;
+									quantum_check = 0;
+								}
+							}
+
+							if(quantum == quantum_check) {
+								printf("#");
+								enqueue(ready_queue, dequeue(ready_queue));
+								quantum_check = 0;
+							}
+
+							T++;
+							int check = 0;
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->remained_cpu_burst_time != 0)
+									check = 1;
+							}
+
+							if(check==0) {
+								double wait = 0;
+								double turnaround = 0;
+
+								printf("\n");
+								printf("average waiting time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_waiting_time[i]);
+									wait += (double) total_waiting_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, wait/(double)num_process);
+								printf("average turnaround time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_turnaround_time[i]);
+									turnaround += (double)total_turnaround_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, turnaround/(double)num_process);
+								for(int i=1; i<=num_process; i++) {
+									init_remained_time(process[i]);
+								}
+								init_queue(waiting_queue);
+								init_queue(ready_queue);
+								break;
+							}
+						}
+						print_wall();
 						break;
 					}
 					default:
@@ -234,7 +812,7 @@ void enqueue(Queue *q, Process *p) {
 
 Process *dequeue(Queue *q) {
 	Process *p = (Process *) malloc(sizeof(Process));
-
+	
 	if(is_empty(q)) {
 		return p;
 	}
@@ -249,25 +827,79 @@ Process *dequeue(Queue *q) {
 		q->head = q->head->next;
 		q->size--;
 	}
-
+	
 	return p;
 }
 
+//Process *dequeue_pid(Queue *q, int i) {}
+
+void print_queue(Queue *q) {
+	Node *node = (Node*) malloc(sizeof(Node));
+	node = q->head;
+	for(int i=0; i<size_queue(q); i++) {
+		printf("%d ", node->process->pid);
+		node = node->next;
+	}
+	printf("\n");
+}
+
 Process *create_process(int i) {
-	int cpu_burst= 1 + rand() % (MAX_CPU_BURST);
+	int cpu_burst = 1 + rand() % (MAX_CPU_BURST);
 	int io_burst = rand() % (MAX_IO_BURST+1);
 	int arrival_time = rand() % (MAX_ARRIVAL+1);
 	int priority = 1 + rand() % (MAX_PRIORITY);
+	int io_start;
+	if(cpu_burst == 1)
+		io_start = 0;
+	else
+		io_start = 1 + rand() % (cpu_burst-1);
 
-	Process *p = (Process *) malloc(sizeof(Process));
+	Process *p = (Process*) malloc(sizeof(Process));
 	p->pid = i;
 	p->cpu_burst_time = cpu_burst;
-	p->io_burst_time = io_burst;
+	if(cpu_burst==1)
+		p->io_burst_time = 0;
+	else
+		p->io_burst_time = io_burst;
+
 	p->arrival_time = arrival_time;
 	p->priority = priority;
-	printf("| pid : %2d, cpu : %2d, i/o : %2d, arrival_time : %2d, prioriry : %2d\n", p->pid, p->cpu_burst_time, p->io_burst_time, p->arrival_time, p->priority);
+	init_remained_time(p);
+
+	if(p->io_burst_time != 0 && p->cpu_burst_time != 1) {
+		p->io_start = io_start;
+	}
+	else {
+		p->io_start = 0;
+	}
 	
 	return p;
+}
+
+void print_process(Process *p) {
+	Process *process = (Process*) malloc(sizeof(Process));
+	process = p;
+
+	if(p->io_burst_time != 0 && p->cpu_burst_time != 1) {
+		printf("| pid : %2d, cpu : %2d, i/o : %2d, arrival_time : %2d, prioriry : %2d, (after cpu_burst %2d, i/o start)\n", p->pid, p->cpu_burst_time, p->io_burst_time, p->arrival_time, p->priority, p->io_start);
+	}
+	else {
+		printf("| pid : %2d, cpu : %2d, i/o : %2d, arrival_time : %2d, prioriry : %2d\n", p->pid, p->cpu_burst_time, p->io_burst_time, p->arrival_time, p->priority);
+	}
+}
+
+void wait_processing(Queue *wq, Queue *rq) {
+	int len = size_queue(wq);
+	for(int i=0; i<len; i++) {
+		wq->head->process->remained_io_burst_time--;
+
+		if(wq->head->process->remained_io_burst_time == 0) {
+			enqueue(rq, dequeue(wq));
+		}
+		else {
+			enqueue(wq, dequeue(wq));
+		}
+	}
 }
 
 void init_remained_time(Process *p) {
@@ -303,20 +935,10 @@ void print_wrong() {
 	print_wall();
 }
 
-void print_algorithm(int n) {
-	printf("| algorithm : ");
-	switch (n) {
-		case 1:
-			printf("FCFS(First Come First Served)\n");
-			break;
-		case 2:
-			printf("SJF(Shortest Job First)\n");
-			break;
-		case 3:
-			printf("Priority\n");
-			break;
-		case 4:
-			printf("RR(Round Robin\n");
-			break;
+void print_Gantt(int result[1000], int T) {
+	printf("*Gantt Chart*\n");
+	for(int i=0; i<=T; i++) {
+		printf("%d", result[i]);
 	}
+	printf("\n");
 }
