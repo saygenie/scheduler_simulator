@@ -106,6 +106,9 @@ int main() {
 				scanf("%d", &num_process);
 				print_wall();
 				if(num_process == EXIT) {
+					for(int i=0; i<=MAX_PROCESS; i++) {
+						free(process[i]);
+					}
 					print_wall();
 					return 0;
 				}
@@ -952,8 +955,6 @@ Process *dequeue(Queue *q) {
 	
 	return p;
 }
-
-//Process *dequeue_pid(Queue *q, int i) {}
 
 void print_queue(Queue *q) {
 	Node *node = (Node*) malloc(sizeof(Node));
