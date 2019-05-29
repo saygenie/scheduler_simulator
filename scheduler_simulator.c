@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAX_PROCESS 10
+#define MAX_PROCESS 9
 #define MIN_PROCESS 2
-#define MAX_CPU_BURST 10
+#define MAX_CPU_BURST 15
 #define MAX_IO_BURST 5
 #define MAX_ARRIVAL 10
 #define MAX_PRIORITY 10
 
-#define WALL 100
+#define WALL 130
 
 #define IO_RANDOM 5
 
@@ -22,6 +22,7 @@
 #define PRIORITY_PREEMPTIVE 4
 #define PRIORITY_NON_PREEMPTIVE 5
 #define RR 6
+#define HRRN 7
 
 #define PREEMPTIVE 1
 #define NON_PREEMPTIVE 2
@@ -136,6 +137,7 @@ int main() {
 				printf("| 4. Priority_Preemptive\n");
 				printf("| 5. Priority_Non_Preemptive\n");
 				printf("| 6. RR(Round Robin)\n");
+				printf("| 7. HRRN(Highest Respone Ratio Next\n");
 				printf("| reset : %d\n", EXIT);
 				printf("| input : ");
 				scanf("%d", &algorithm);
@@ -153,8 +155,8 @@ int main() {
 					case FCFS:
 					{
 						int T = 0;
-						int total_waiting_time[MAX_PROCESS] = {0, };
-						int total_turnaround_time[MAX_PROCESS] = {0, };
+						int total_waiting_time[MAX_PROCESS+1] = {0, };
+						int total_turnaround_time[MAX_PROCESS+1] = {0, };
 						printf("(FCFS)\n");
 						printf("|");
 						while(1) {
@@ -235,8 +237,8 @@ int main() {
 					case SJF_PREEMPTIVE:
 					{
 						int T = 0;
-						int total_waiting_time[MAX_PROCESS] = {0, };
-						int total_turnaround_time[MAX_PROCESS] = {0, };
+						int total_waiting_time[MAX_PROCESS+1] = {0, };
+						int total_turnaround_time[MAX_PROCESS+1] = {0, };
 						printf("(SJF_Preemptive)\n");
 						printf("|");
 						while(1) {
@@ -338,8 +340,8 @@ int main() {
 					case SJF_NON_PREEMPTIVE:
 					{
 						int T = 0;
-						int total_waiting_time[MAX_PROCESS] = {0, };
-						int total_turnaround_time[MAX_PROCESS] = {0, };
+						int total_waiting_time[MAX_PROCESS+1] = {0, };
+						int total_turnaround_time[MAX_PROCESS+1] = {0, };
 						printf("(SJF_Non_Preemptive)\n");
 						printf("|");
 						while(1) {
@@ -451,8 +453,8 @@ int main() {
 					case PRIORITY_PREEMPTIVE:
 					{
 						int T = 0;
-						int total_waiting_time[MAX_PROCESS] = {0, };
-						int total_turnaround_time[MAX_PROCESS] = {0, };
+						int total_waiting_time[MAX_PROCESS+1] = {0, };
+						int total_turnaround_time[MAX_PROCESS+1] = {0, };
 						printf("(PRIORITY_Preemptive)\n");
 						printf("|");
 						while(1) {
@@ -554,8 +556,8 @@ int main() {
 					case PRIORITY_NON_PREEMPTIVE:
 					{
 						int T = 0;
-						int total_waiting_time[MAX_PROCESS] = {0, };
-						int total_turnaround_time[MAX_PROCESS] = {0, };
+						int total_waiting_time[MAX_PROCESS+1] = {0, };
+						int total_turnaround_time[MAX_PROCESS+1] = {0, };
 						printf("(PRIORITY_Non_Preemptive)\n");
 						printf("|");
 						while(1) {
@@ -587,7 +589,7 @@ int main() {
 									enqueue(waiting_queue, dequeue(ready_queue));
 									int need_dequeue = 0;
 									for(int i=0; i<size_queue(ready_queue); i++) {
-										if(priority_process->remained_cpu_burst_time < node->process->remained_cpu_burst_time) {
+										if(priority_process->priority < node->process->priority) {
 											priority_process = node->process;
 											need_dequeue = i;
 										}
@@ -609,7 +611,7 @@ int main() {
 
 									int need_dequeue = 0;
 									for(int i=0; i<size_queue(ready_queue); i++) {
-										if(priority_process->remained_cpu_burst_time < node->process->remained_cpu_burst_time) {
+										if(priority_process->priority < node->process->priority) {
 											priority_process = node->process;
 											need_dequeue = i;
 										}
@@ -669,8 +671,8 @@ int main() {
 						int T = 0;
 						int quantum;
 						int quantum_check = 0;
-						int total_waiting_time[MAX_PROCESS] = {0, };
-						int total_turnaround_time[MAX_PROCESS] = {0, };
+						int total_waiting_time[MAX_PROCESS+1] = {0, };
+						int total_turnaround_time[MAX_PROCESS+1] = {0, };
 						printf("(Round Robin)\n");
 						printf("quantum : ");
 						scanf("%d", &quantum);
@@ -718,6 +720,126 @@ int main() {
 								printf("#");
 								enqueue(ready_queue, dequeue(ready_queue));
 								quantum_check = 0;
+							}
+
+							T++;
+							int check = 0;
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->remained_cpu_burst_time != 0)
+									check = 1;
+							}
+
+							if(check==0) {
+								double wait = 0;
+								double turnaround = 0;
+
+								printf("\n");
+								printf("average waiting time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_waiting_time[i]);
+									wait += (double) total_waiting_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, wait/(double)num_process);
+								printf("average turnaround time : (");
+								for(int i=1; i<=num_process; i++) {
+									printf("%d ", total_turnaround_time[i]);
+									turnaround += (double)total_turnaround_time[i];
+									if(i!=num_process) {
+										printf("+ ");
+									}
+								}
+								printf(") / %d = %.2f\n", num_process, turnaround/(double)num_process);
+								for(int i=1; i<=num_process; i++) {
+									init_remained_time(process[i]);
+								}
+								init_queue(waiting_queue);
+								init_queue(ready_queue);
+								break;
+							}
+						}
+						print_wall();
+						break;
+					}
+					case HRRN:
+					{
+						int T = 0;
+						int total_waiting_time[MAX_PROCESS+1] = {0, };
+						int total_turnaround_time[MAX_PROCESS+1] = {0, };
+						double priority[MAX_PROCESS+1] = {0, };
+						printf("(HRRN)\n");
+						printf("|");
+						while(1) {
+							for(int i=1; i<=num_process; i++) {
+								if(process[i]->arrival_time==T) {
+									enqueue(ready_queue, process[i]);
+								}
+							}
+
+							for(int i=1; i<=num_process; i++) {
+								double waiting_time = T - process[i]->arrival_time - (process[i]->cpu_burst_time - process[i]->remained_cpu_burst_time) - (process[i]->io_burst_time - process[i]->remained_io_burst_time);
+								double estimated_run_time = (process[i]->cpu_burst_time - process[i]->remained_cpu_burst_time) + (process[i]->io_burst_time - process[i]->remained_io_burst_time);
+								priority[i] = (waiting_time + estimated_run_time) / estimated_run_time;
+							}
+
+							if(is_empty(ready_queue)) {
+								printf("0|");
+								wait_processing(waiting_queue, ready_queue);
+							}
+							else {
+								Process *priority_process = (Process*) malloc(sizeof(Process));
+								priority_process = ready_queue->head->process;
+								Node *node = (Node*) malloc(sizeof(Node));
+								node = ready_queue->head;
+
+								printf("%d", ready_queue->head->process->pid);
+								priority_process->remained_cpu_burst_time--;
+
+								if(!is_empty(waiting_queue)) {
+									wait_processing(waiting_queue, ready_queue);
+								}
+
+								if(priority_process->io_start != 0 && priority_process->cpu_burst_time - priority_process->io_start == priority_process->remained_cpu_burst_time) {
+									printf("|");
+									enqueue(waiting_queue, dequeue(ready_queue));
+									int need_dequeue = 0;
+									for(int i=0; i<size_queue(ready_queue); i++) {
+										if(priority[priority_process->pid] < priority[node->process->pid]) {
+											priority_process = node->process;
+											need_dequeue = i;
+										}
+										
+										node = node->next;
+									}
+
+									for(int i=0; i<need_dequeue; i++) {
+										enqueue(ready_queue, dequeue(ready_queue));
+									}
+								}
+								
+								if(!is_empty(ready_queue) && ready_queue->head->process->remained_cpu_burst_time == 0) {
+									printf("|");
+									Process *complete_process = (Process*) malloc(sizeof(Process));
+									complete_process = dequeue(ready_queue);
+									total_waiting_time[complete_process->pid] = T + 1 - complete_process->arrival_time - complete_process->cpu_burst_time - complete_process->io_burst_time;
+									total_turnaround_time[complete_process->pid] = T + 1 - complete_process->arrival_time;
+
+									int need_dequeue = 0;
+									for(int i=0; i<size_queue(ready_queue); i++) {
+										if(priority[priority_process->pid] < priority[node->process->pid]) {
+											priority_process = node->process;
+											need_dequeue = i;
+										}
+										
+										node = node->next;
+									}
+
+									for(int i=0; i<need_dequeue; i++) {
+										enqueue(ready_queue, dequeue(ready_queue));
+									}
+								}
 							}
 
 							T++;
