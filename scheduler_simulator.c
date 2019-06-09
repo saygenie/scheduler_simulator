@@ -783,7 +783,7 @@ int main() {
 
 							for(int i=1; i<=num_process; i++) {
 								double waiting_time = T - process[i]->arrival_time - (process[i]->cpu_burst_time - process[i]->remained_cpu_burst_time) - (process[i]->io_burst_time - process[i]->remained_io_burst_time);
-								double estimated_run_time = (process[i]->cpu_burst_time - process[i]->remained_cpu_burst_time) + (process[i]->io_burst_time - process[i]->remained_io_burst_time);
+								double estimated_run_time = process[i]->remained_cpu_burst_time);
 								priority[i] = (waiting_time + estimated_run_time) / estimated_run_time;
 							}
 
